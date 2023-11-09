@@ -1,8 +1,8 @@
 local M = {}
 
-local p = function (message)
-  vim.notify(message, 3)
-end
+-- local p = function (message)
+--   vim.notify(message, 3)
+-- end
 
 local ts = vim.treesitter
 local parsers = require('nvim-treesitter.parsers')
@@ -14,9 +14,9 @@ local parsers = require('nvim-treesitter.parsers')
 --   ) @array
 -- ]]
 
----@param node TSNode?
 ---@return boolean, TSNode?, TSNode?
-M.validate_touple = function(node)
+M.validate_touple = function()
+  local node = ts.get_node()
   local parser = parsers.get_parser()
   local tree = parser:parse()[1]
   local root = tree:root()
@@ -50,7 +50,7 @@ end
 
 ---@return boolean
 M.go_to_definition = function()
-  local isValidTouple, class_node, method_node = M.validate_touple(ts.get_node())
+  local isValidTouple, class_node, method_node = M.validate_touple()
   if isValidTouple and class_node ~= nil then
     local method_name = ts.get_node_text(method_node, 0)
     local class_name = ts.get_node_text(class_node, 0):gsub('\\', '/')
