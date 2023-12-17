@@ -33,9 +33,9 @@ local qualified_name_qs = [[
 
 local M = {}
 
-local p = function(message)
-  vim.notify(message, 3)
-end
+-- local p = function(message)
+--   vim.notify(message, 3)
+-- end
 
 local function get_namespace(class_name)
   local language = parser:lang()
@@ -44,12 +44,10 @@ local function get_namespace(class_name)
   local namespace_qs = '\
 (namespace_use_declaration\
   (namespace_use_clause\
-    (qualified_name) @class (#match? @class ".*' .. class_name .. '")\
-    )\
-  )\
-'
+    (qualified_name) @class\
+    ) @clause (#match? @clause ".*' .. class_name .. '")\
+  )'
   local query = ts.query.parse(language, namespace_qs)
-  local namespace = nil
   for i, match, _ in query:iter_captures(node, 0) do
     local name = query.captures[i]
     if name == 'class' then
