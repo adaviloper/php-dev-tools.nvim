@@ -33,9 +33,9 @@ local qualified_name_qs = [[
 
 local M = {}
 
--- local p = function(message)
---   vim.notify(message, 3)
--- end
+local p = function(message)
+  vim.notify(message, 3)
+end
 
 local function get_namespace(class_name)
   local language = parser:lang()
@@ -82,6 +82,9 @@ M.validate_touple = function()
     node = node:parent()
   end
   local sibling_type = node:parent():prev_sibling():prev_sibling():child(0):child(0):type()
+  if sibling_type ~= 'name' and sibling_type ~= 'qualified_name' then
+    return false
+  end
 
   if sibling_type == 'name' then
     local imported_query = ts.query.parse(language, imported_name_qs)
@@ -104,6 +107,8 @@ end
 ---@return boolean
 M.go_to_definition = function()
   local isValidTouple, className, methodName, type = M.validate_touple()
+  targetClass = nil
+  targetMethod = nil
   if isValidTouple and className and methodName then
     className = get_namespace(className)
     if className:sub(1, 1) == '\\' then
