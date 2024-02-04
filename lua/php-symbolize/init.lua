@@ -20,21 +20,21 @@ local qualified_name_qs = [[
 (array_creation_expression
   (array_element_initializer
     (class_constant_access_expression
-      (qualified_name
-        (name) @class
+      (qualified_name) @class
       )
-    )
-  )
+    ) @first
   (array_element_initializer
-    (string (string_value) @method)
-  )
+    (string
+      (string_value) @method
+      ) @quoted_method_name
+    ) @second
 )
   ]]
 
 local M = {}
 
 local p = function(message)
-  vim.notify(message, 3)
+  vim.notify(vim.inspect(message), 3)
 end
 
 local function get_namespace(class_name)
@@ -92,7 +92,7 @@ M.validate_touple = function()
     if targetClass ~= nil and targetMethod ~= nil then
       return true, targetClass, targetMethod, 'imported'
     end
-  else
+  elseif sibling_type == 'qualified_name' then
     local qualified_name_query = ts.query.parse(language, qualified_name_qs)
     parse_groups(qualified_name_query, node, 'inline')
     if targetClass ~= nil and targetMethod ~= nil then
@@ -107,19 +107,23 @@ end
 ---@return boolean
 M.go_to_definition = function()
   local isValidTouple, className, methodName, type = M.validate_touple()
-  targetClass = nil
-  targetMethod = nil
-  if isValidTouple and className and methodName then
-    className = get_namespace(className)
-    if className:sub(1, 1) == '\\' then
-      className = className:sub(2)
+  if isValidTouple then
+    targetClass = nil
+    targetMethod = nil
+    if isValidTouple and className and methodName then
+      if type == 'inline' then
+        className = className:sub(2)
+      else
+        className = get_namespace(className)
+      end
+      className = className:gsub('\\', '/')
+      vim.cmd('find +/' .. methodName .. ' ' .. className)
+      vim.cmd('norm zzwww')
+      return true
     end
-    className = className:gsub('\\', '/')
-    vim.cmd('find +/' .. methodName .. ' ' .. className)
-    vim.cmd('norm zzwww')
-    return true
+  else
+    require("telescope.builtin").lsp_definitions()
   end
-  return false
 end
 
 
