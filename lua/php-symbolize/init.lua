@@ -1,8 +1,10 @@
 local ts = vim.treesitter
+local get_node_text = ts.get_node_text
 local parsers = require('nvim-treesitter.parsers')
 local parser = parsers.get_parser()
 local targetClass = nil
 local targetMethod = nil
+
 
 local imported_name_qs = [[
 (array_creation_expression
@@ -126,6 +128,39 @@ M.go_to_definition = function()
   end
 end
 
+local get_target_node = function(node_name)
+  local node = vim.treesitter.get_node()
+
+  while node ~= nil do
+    if node:type() == node_name then
+      return node
+    end
+
+    node = node:parent()
+  end
+end
+
+local function test_symbol(node, lang, schema)
+  if not node then
+    vim.notify('No target node found.')
+    return
+  end
+
+  local query = assert(vim.treesitter.query.get(lang, schema), 'No query')
+  for _, capture in query:iter_captures(node, 0) do
+    vim.cmd('TermExec cmd="docker exec -it core vendor/bin/phpunit --filter ' .. get_node_text(capture, 0) .. '"')
+  end
+end
+
+M.test_nearest_method = function()
+  local node = get_target_node('method_declaration')
+  test_symbol(node, 'php', 'method-name')
+end
+
+M.test_current_file = function()
+  local node = get_target_node('class_declaration')
+  test_symbol(node, 'php', 'class-name')
+end
 
 M.setup = function() end
 
