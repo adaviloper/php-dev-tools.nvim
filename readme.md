@@ -6,6 +6,9 @@ Lazy
 return {
   'adaviloper/php-dev-tools.nvim',
   ft = 'php',
+  dependencies = {
+    'akinsho/toggleterm.nvim',
+  },
   config = function ()
     require('php-dev-tools').setup()
   end,
