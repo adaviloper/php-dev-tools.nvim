@@ -5,7 +5,6 @@ local parser = parsers.get_parser()
 local targetClass = nil
 local targetMethod = nil
 
-
 local imported_name_qs = [[
 (array_creation_expression
   (array_element_initializer
