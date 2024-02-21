@@ -13,7 +13,7 @@ return {
 ```
 
 ## Functionality
-Bind these two whatever keys you'd like.
+Bind these to whatever keys you'd like.
 ```lua
 require('php-dev-tools').test_nearest_method()
 require('php-dev-tools').test_current_file()
