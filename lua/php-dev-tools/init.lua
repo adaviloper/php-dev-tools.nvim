@@ -147,13 +147,22 @@ local function test_symbol(node, lang, schema)
 
   local query = assert(vim.treesitter.query.get(lang, schema), 'No query')
   for _, capture in query:iter_captures(node, 0) do
-    vim.cmd('TermExec cmd="docker exec -it core vendor/bin/phpunit --filter ' .. get_node_text(capture, 0) .. '"')
+    if schema == 'pest-test-name' then
+      vim.fn.setreg('+', 'sail test --filter ' .. get_node_text(capture, 0))
+    else
+      vim.cmd('TermExec cmd="docker exec -it core vendor/bin/phpunit --filter ' .. get_node_text(capture, 0) .. '"')
+    end
   end
 end
 
 M.test_nearest_method = function()
   local node = get_target_node('method_declaration')
-  test_symbol(node, 'php', 'method-name')
+  if node == nil then
+    node = get_target_node('function_call_expression')
+    test_symbol(node, 'php', 'pest-test-name')
+  else
+    test_symbol(node, 'php', 'method-name')
+  end
 end
 
 M.test_current_file = function()
