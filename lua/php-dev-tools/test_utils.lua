@@ -1,8 +1,12 @@
-local config = require "php-dev-tools.config"
 local ts = vim.treesitter
 local get_node_text = ts.get_node_text
 
 local TestUtils = {}
+
+---@param config table
+TestUtils.setup = function (config)
+  TestUtils.config = config
+end
 
 local get_target_node = function(node_name)
   local node = vim.treesitter.get_node()
@@ -24,16 +28,13 @@ local function test_symbol(node, lang, schema)
 
   local query = assert(vim.treesitter.query.get(lang, schema), 'No query')
   for _, capture in query:iter_captures(node, 0) do
-    if schema == 'pest-test-name' then
-      vim.fn.setreg('+', 'sail test --filter ' .. get_node_text(capture, 0))
-    else
-      vim.cmd('TermExec cmd="' .. config.test_utils.cmd .. ' ' .. get_node_text(capture, 0) .. '"')
+    if TestUtils.config[vim.loop.cwd()] ~= nil then
+      vim.cmd('TermExec cmd="' .. TestUtils.config[vim.loop.cwd()].cmd .. ' ' .. get_node_text(capture, 0) .. '"')
     end
   end
 end
 
 TestUtils.test_nearest_method = function()
-  vim.notify(vim.inspect(config))
   local node = get_target_node('method_declaration')
   if node == nil then
     node = get_target_node('function_call_expression')

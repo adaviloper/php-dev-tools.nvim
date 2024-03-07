@@ -15,7 +15,7 @@ M.go_to = {
 
 M.setup = function(opts)
   config.set(opts)
-  vim.notify(vim.inspect(config))
+  test_utils.setup(config.test_utils)
 end
 
 return M
