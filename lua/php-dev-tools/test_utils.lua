@@ -1,8 +1,19 @@
 local ts = vim.treesitter
 local get_node_text = ts.get_node_text
 
+---@class PerDirectoryConfig
+---@field dir string
+---@field command string
+---@field groups string[]
+
+---@class Config
+---@field last_test string|nil
+---@field config {[table]:PerDirectoryConfig}|nil
+
+---@type Config
 local TestUtils = {
   last_test = nil,
+  config = nil,
 }
 
 ---@param config table
@@ -36,7 +47,7 @@ local function test_symbol(node, lang, schema)
   local query = assert(vim.treesitter.query.get(lang, schema), 'No query')
   for _, capture in query:iter_captures(node, 0) do
     if TestUtils.config[vim.loop.cwd()] ~= nil then
-      run_test(get_node_text(capture, 0))
+      run_test('--filter ' .. get_node_text(capture, 0))
     end
   end
 end
@@ -58,6 +69,24 @@ end
 TestUtils.test_current_file = function()
   local node = get_target_node('class_declaration')
   test_symbol(node, 'php', 'class-name')
+end
+
+TestUtils.test_group = function()
+  vim.notify(vim.inspect(TestUtils.config))
+  vim.notify(vim.loop.cwd())
+  if TestUtils.config[vim.loop.cwd()] ~= nil then
+    vim.ui.select(
+      TestUtils.config[vim.loop.cwd()].groups,
+      {
+        prompt = 'Select a test group:'
+      },
+      function (choice)
+        if choice ~= nil then
+          run_test('--group ' .. choice)
+        end
+      end
+    )
+  end
 end
 
 return TestUtils
