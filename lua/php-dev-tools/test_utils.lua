@@ -72,8 +72,6 @@ TestUtils.test_current_file = function()
 end
 
 TestUtils.test_group = function()
-  vim.notify(vim.inspect(TestUtils.config))
-  vim.notify(vim.loop.cwd())
   if TestUtils.config[vim.loop.cwd()] ~= nil then
     vim.ui.select(
       TestUtils.config[vim.loop.cwd()].groups,

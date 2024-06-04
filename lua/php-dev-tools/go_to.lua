@@ -33,10 +33,6 @@ local qualified_name_qs = [[
 
 local GoTo = {}
 
-local p = function(message)
-  vim.notify(vim.inspect(message), 3)
-end
-
 local function get_namespace(class_name)
   local language = parser:lang()
   local tree = parser:parse()[1]
