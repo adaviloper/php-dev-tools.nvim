@@ -4,6 +4,7 @@ local get_node_text = ts.get_node_text
 ---@class PerDirectoryConfig
 ---@field dir string
 ---@field command string
+---@field group_cmd string
 ---@field groups string[]
 
 ---@class Config
@@ -16,9 +17,63 @@ local TestUtils = {
   config = nil,
 }
 
+local function get_phpunit_groups()
+  local cwd = vim.loop.cwd()
+
+  -- If cached, return immediately
+  if TestUtils.config[cwd]._groups ~= nil then
+    return TestUtils.config[cwd]._groups
+  end
+
+  -- Initialize with an empty table to avoid nil issues
+  TestUtils.config[cwd]._groups = {}
+
+  local cmd = TestUtils.config[cwd].group_cmd
+  if cmd == nil then return {} end
+
+  local stdout = vim.loop.new_pipe(false)
+  local handle
+
+  handle = vim.loop.spawn("sh", {
+    args = { "-c", cmd }, -- Execute the command in the shell
+    stdio = { nil, stdout, nil }
+  }, function(code, _)
+    stdout:close()
+    handle:close()
+
+    if code ~= 0 then
+      vim.notify("Failed to fetch test groups", vim.log.levels.ERROR)
+      return
+    end
+  end)
+
+  local output = {}
+
+  stdout:read_start(function(err, data)
+    if err then
+      vim.notify("Error reading output: " .. err, vim.log.levels.ERROR)
+      return
+    end
+    if data then
+      for line in data:gmatch("[^\r\n]+") do
+        local group = line:match("%s*%- ([a-zA-Z%-_]+) .+")
+        if group then
+          table.insert(output, group)
+        end
+      end
+    else
+      -- Cache the result once reading is done
+      TestUtils.config[cwd]._groups = output
+    end
+  end)
+
+  return TestUtils.config[cwd].groups
+end
+
 ---@param config table
 TestUtils.setup = function (config)
   TestUtils.config = config
+  get_phpunit_groups()
 end
 
 local get_target_node = function(node_name)
@@ -74,7 +129,7 @@ end
 TestUtils.test_group = function()
   if TestUtils.config[vim.loop.cwd()] ~= nil then
     vim.ui.select(
-      TestUtils.config[vim.loop.cwd()].groups,
+      get_phpunit_groups(),
       {
         prompt = 'Select a test group:'
       },
