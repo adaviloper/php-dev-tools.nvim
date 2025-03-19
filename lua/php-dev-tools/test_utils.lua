@@ -5,16 +5,16 @@ local get_node_text = ts.get_node_text
 ---@field dir string
 ---@field command string
 ---@field group_cmd string
----@field groups string[]
+---@field _groups string[]
 
 ---@class Config
 ---@field last_test string|nil
----@field config {[table]:PerDirectoryConfig}|nil
+---@field config {[table]:PerDirectoryConfig}
 
 ---@type Config
 local TestUtils = {
   last_test = nil,
-  config = nil,
+  config = {},
 }
 
 local function update_phpunit_groups()
