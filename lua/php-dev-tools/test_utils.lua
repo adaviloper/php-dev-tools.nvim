@@ -29,14 +29,16 @@ local function get_phpunit_groups()
   TestUtils.config[cwd]._groups = {}
 
   local cmd = TestUtils.config[cwd].group_cmd
-  if cmd == nil then return {} end
+  if cmd == nil then
+    return {}
+  end
 
   local stdout = vim.loop.new_pipe(false)
   local handle
 
   handle = vim.loop.spawn("sh", {
     args = { "-c", cmd }, -- Execute the command in the shell
-    stdio = { nil, stdout, nil }
+    stdio = { nil, stdout, nil },
   }, function(code, _)
     stdout:close()
     handle:close()
@@ -50,13 +52,14 @@ local function get_phpunit_groups()
   local output = {}
 
   stdout:read_start(function(err, data)
+    vim.notify(vim.inspect(data))
     if err then
       vim.notify("Error reading output: " .. err, vim.log.levels.ERROR)
       return
     end
     if data then
       for line in data:gmatch("[^\r\n]+") do
-        local group = line:match("%s*%- ([a-zA-Z%-_]+) .+")
+        local group = line:match("%s*- ([a-zA-Z%-_]+)")
         if group then
           table.insert(output, group)
         end
@@ -67,13 +70,15 @@ local function get_phpunit_groups()
     end
   end)
 
-  return TestUtils.config[cwd].groups
+  return TestUtils.config[cwd]._groups
 end
 
 ---@param config table
-TestUtils.setup = function (config)
+TestUtils.setup = function(config)
   TestUtils.config = config
-  get_phpunit_groups()
+  if vim.fs.root(0, 'phpunit.xml') then
+    get_phpunit_groups()
+  end
 end
 
 local get_target_node = function(node_name)
@@ -90,19 +95,19 @@ end
 
 local function run_test(test)
   TestUtils.last_test = test
-  vim.cmd('TermExec cmd="' .. TestUtils.config[vim.loop.cwd()].cmd .. ' ' .. test .. '"')
+  vim.cmd('TermExec cmd="' .. TestUtils.config[vim.loop.cwd()].cmd .. " " .. test .. '"')
 end
 
 local function test_symbol(node, lang, schema)
   if not node then
-    vim.notify('No target node found.')
+    vim.notify("No target node found.")
     return
   end
 
-  local query = assert(vim.treesitter.query.get(lang, schema), 'No query')
+  local query = assert(vim.treesitter.query.get(lang, schema), "No query")
   for _, capture in query:iter_captures(node, 0) do
     if TestUtils.config[vim.loop.cwd()] ~= nil then
-      run_test('--filter ' .. get_node_text(capture, 0))
+      run_test("--filter " .. get_node_text(capture, 0))
     end
   end
 end
@@ -112,33 +117,29 @@ TestUtils.test_last_test = function()
 end
 
 TestUtils.test_nearest_method = function()
-  local node = get_target_node('method_declaration')
+  local node = get_target_node("method_declaration")
   if node == nil then
-    node = get_target_node('function_call_expression')
-    test_symbol(node, 'php', 'pest-test-name')
+    node = get_target_node("function_call_expression")
+    test_symbol(node, "php", "pest-test-name")
   else
-    test_symbol(node, 'php', 'method-name')
+    test_symbol(node, "php", "method-name")
   end
 end
 
 TestUtils.test_current_file = function()
-  local node = get_target_node('class_declaration')
-  test_symbol(node, 'php', 'class-name')
+  local node = get_target_node("class_declaration")
+  test_symbol(node, "php", "class-name")
 end
 
 TestUtils.test_group = function()
   if TestUtils.config[vim.loop.cwd()] ~= nil then
-    vim.ui.select(
-      get_phpunit_groups(),
-      {
-        prompt = 'Select a test group:'
-      },
-      function (choice)
-        if choice ~= nil then
-          run_test('--group ' .. choice)
-        end
+    vim.ui.select(get_phpunit_groups(), {
+      prompt = "Select a test group:",
+    }, function(choice)
+      if choice ~= nil then
+        run_test("--group " .. choice)
       end
-    )
+    end)
   end
 end
 
