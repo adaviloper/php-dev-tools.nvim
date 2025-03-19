@@ -17,60 +17,75 @@ local TestUtils = {
   config = nil,
 }
 
-local function get_phpunit_groups()
-  local cwd = vim.loop.cwd()
-
-  -- If cached, return immediately
-  if TestUtils.config[cwd]._groups ~= nil then
-    return TestUtils.config[cwd]._groups
-  end
-
-  -- Initialize with an empty table to avoid nil issues
-  TestUtils.config[cwd]._groups = {}
+local function update_phpunit_groups()
+  local cwd = vim.uv.cwd()
 
   local cmd = TestUtils.config[cwd].group_cmd
   if cmd == nil then
     return {}
   end
 
-  local stdout = vim.loop.new_pipe(false)
+  local stdout = vim.uv.new_pipe(false)
   local handle
 
-  handle = vim.loop.spawn("sh", {
+  handle = vim.uv.spawn("sh", {
     args = { "-c", cmd }, -- Execute the command in the shell
     stdio = { nil, stdout, nil },
   }, function(code, _)
-    stdout:close()
-    handle:close()
+    if stdout then stdout:close() end
+    if handle then handle:close() end
 
     if code ~= 0 then
-      vim.notify("Failed to fetch test groups", vim.log.levels.ERROR)
+      vim.schedule(function() -- Schedule the API call safely
+        vim.notify("Failed to fetch test groups", vim.log.levels.ERROR)
+      end)
       return
     end
   end)
 
   local output = {}
 
-  stdout:read_start(function(err, data)
-    vim.notify(vim.inspect(data))
-    if err then
-      vim.notify("Error reading output: " .. err, vim.log.levels.ERROR)
-      return
-    end
-    if data then
-      for line in data:gmatch("[^\r\n]+") do
-        local group = line:match("%s*- ([a-zA-Z%-_]+)")
-        if group then
-          table.insert(output, group)
+  if stdout then
+    stdout:read_start(function(err, data)
+      if err then
+        vim.schedule(function ()
+          vim.notify("Error reading output: " .. err, vim.log.levels.ERROR)
+        end)
+        return
+      end
+      if data then
+        for line in data:gmatch("[^\r\n]+") do
+          local group = line:match("%s*- ([a-zA-Z%-_]+)")
+          if group then
+            table.insert(output, group)
+          end
         end
       end
-    else
-      -- Cache the result once reading is done
-      TestUtils.config[cwd]._groups = output
-    end
+    end)
+  end
+
+  vim.schedule(function()
+    TestUtils.config[cwd]._groups = output
   end)
 
   return TestUtils.config[cwd]._groups
+end
+
+local function get_phpunit_groups()
+  local cwd = vim.uv.cwd()
+
+  -- Initialize with an empty table to avoid nil issues
+  if TestUtils.config[cwd]._groups == nil then
+    TestUtils.config[cwd]._groups = {}
+  end
+
+  -- If cached, return immediately
+  if #TestUtils.config[cwd]._groups > 0 then
+    update_phpunit_groups()
+    return TestUtils.config[cwd]._groups
+  else
+    return update_phpunit_groups()
+  end
 end
 
 ---@param config table
@@ -78,6 +93,8 @@ TestUtils.setup = function(config)
   TestUtils.config = config
   if vim.fs.root(0, 'phpunit.xml') then
     get_phpunit_groups()
+  else
+    vim.notify('no phpunit.xml file found')
   end
 end
 
@@ -95,7 +112,7 @@ end
 
 local function run_test(test)
   TestUtils.last_test = test
-  vim.cmd('TermExec cmd="' .. TestUtils.config[vim.loop.cwd()].cmd .. " " .. test .. '"')
+  vim.cmd('TermExec cmd="' .. TestUtils.config[vim.uv.cwd()].cmd .. " " .. test .. '"')
 end
 
 local function test_symbol(node, lang, schema)
@@ -106,7 +123,7 @@ local function test_symbol(node, lang, schema)
 
   local query = assert(vim.treesitter.query.get(lang, schema), "No query")
   for _, capture in query:iter_captures(node, 0) do
-    if TestUtils.config[vim.loop.cwd()] ~= nil then
+    if TestUtils.config[vim.uv.cwd()] ~= nil then
       run_test("--filter " .. get_node_text(capture, 0))
     end
   end
@@ -132,7 +149,7 @@ TestUtils.test_current_file = function()
 end
 
 TestUtils.test_group = function()
-  if TestUtils.config[vim.loop.cwd()] ~= nil then
+  if TestUtils.config[vim.uv.cwd()] ~= nil then
     vim.ui.select(get_phpunit_groups(), {
       prompt = "Select a test group:",
     }, function(choice)
